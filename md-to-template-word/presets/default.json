@@ -1,0 +1,12 @@
+{
+  "body_style": "Normal",
+  "body_candidate_styles": ["Normal", "Body Text", "正文", "标准"],
+  "body_east_asia_font": "宋体",
+  "table_east_asia_font": "宋体",
+  "table_font_size_pt": 10.5,
+  "enable_three_line_tables": true,
+  "enable_black_hyperlinks": true,
+  "remap_styles_by_name": true,
+  "insert_toc": true,
+  "table_captions": []
+}

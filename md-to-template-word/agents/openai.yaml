@@ -1,0 +1,4 @@
+interface:
+  display_name: "Markdown Template Word"
+  short_description: "Convert Markdown into template-formatted Word documents"
+  default_prompt: "Use $md-to-template-word to convert my Markdown file into a Word .docx that follows a supplied template. Let the template itself determine whether the output has a TOC. Keep native Word heading numbering, bullet lists, and template styles instead of flattening everything into plain text."
