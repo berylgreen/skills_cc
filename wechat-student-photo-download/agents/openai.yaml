@@ -1,0 +1,7 @@
+interface:
+  display_name: "WeChat Student Photo Download"
+  short_description: "Extract WeChat rosters and download named photos"
+  default_prompt: "Use $wechat-student-photo-download to extract student IDs and names from a WeChat mini program list and batch-download named student photos."
+
+policy:
+  allow_implicit_invocation: true
