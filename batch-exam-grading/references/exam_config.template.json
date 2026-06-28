@@ -1,0 +1,225 @@
+{
+  "files": {
+    "answer_folder": "answers",
+    "roster_csv": "roster.csv",
+    "output_xlsx": "scores.xlsx",
+    "llm_grades_jsonl": "llm_grades.jsonl",
+    "llm_cache_jsonl": "llm_cache.jsonl"
+  },
+  "roster": {
+    "student_id_field": "student_id",
+    "name_field": "name",
+    "seq_field": "seq"
+  },
+  "parsing": {
+    "student_id_pattern": "(\\d{10,12})",
+    "sections": {
+      "choice": {
+        "start_keywords": ["单选题", "选择题", "客观题"],
+        "end_keywords": ["填空题", "程序分析", "简答题"]
+      },
+      "analysis": {
+        "start_keywords": ["程序分析", "分析题", "简答题"],
+        "end_keywords": ["编程题", "程序设计", "算法题"]
+      }
+    },
+    "code_table_keywords": ["class", "public", "static", "void", "import", "System.out"],
+    "code_min_length": 20
+  },
+  "llm": {
+    "provider": "openai",
+    "model": "",
+    "require_for_subjective": true,
+    "review_policy": {
+      "force_review_scores": [0],
+      "force_review_confidence": ["low"],
+      "force_review_full_score": true
+    }
+  },
+  "questions": [
+    {
+      "id": 1,
+      "type": "choice",
+      "score": 2,
+      "section": "一、选择题",
+      "extract": {
+        "source": "choice_inline"
+      },
+      "grading": {
+        "mode": "exact",
+        "answer": "A"
+      }
+    },
+    {
+      "id": 2,
+      "type": "choice",
+      "score": 2,
+      "section": "一、选择题",
+      "extract": {
+        "source": "choice_inline"
+      },
+      "grading": {
+        "mode": "exact",
+        "answer": "B"
+      }
+    },
+    {
+      "id": 16,
+      "type": "fill",
+      "score": 2,
+      "section": "二、填空题",
+      "extract": {
+        "source": "regex",
+        "pattern": "1[、.．]\\s*(.+)"
+      },
+      "grading": {
+        "mode": "contains_any",
+        "answers": ["JVM", "虚拟机"]
+      }
+    },
+    {
+      "id": 17,
+      "type": "fill",
+      "score": 2,
+      "section": "二、填空题",
+      "extract": {
+        "source": "regex",
+        "pattern": "2[、.．]\\s*(.+)"
+      },
+      "grading": {
+        "mode": "contains_any",
+        "answers": ["强制类型转换"]
+      }
+    },
+    {
+      "id": 21,
+      "type": "analysis",
+      "score": 5,
+      "section": "三、程序分析题",
+      "extract": {
+        "source": "section_question",
+        "question_number": 1
+      },
+      "llm": {
+        "enabled": true,
+        "prompt": "填写第21题题干或程序片段摘要。",
+        "reference_answer": "填写第21题标准答案。",
+        "rubric": [
+          {"point": "结论正确", "score": 5},
+          {"point": "存在关键中间结论但最终结果错误", "score": 2}
+        ]
+      },
+      "fallback_grading": {
+        "mode": "contains_any",
+        "answers": ["标准答案关键词"]
+      }
+    },
+    {
+      "id": 22,
+      "type": "analysis",
+      "score": 5,
+      "section": "三、程序分析题",
+      "extract": {
+        "source": "section_question",
+        "question_number": 2
+      },
+      "llm": {
+        "enabled": true,
+        "prompt": "填写第22题题干或程序片段摘要。",
+        "reference_answer": "填写第22题标准答案。",
+        "rubric": [
+          {"point": "结论正确", "score": 5},
+          {"point": "解释部分正确但结论错误", "score": 2}
+        ]
+      },
+      "fallback_grading": {
+        "mode": "contains_any",
+        "answers": ["标准答案关键词"]
+      }
+    },
+    {
+      "id": 23,
+      "type": "code",
+      "score": 10,
+      "section": "四、编程题",
+      "extract": {
+        "source": "code_table",
+        "table_index": 0
+      },
+      "llm": {
+        "enabled": true,
+        "prompt": "填写第23题题干。",
+        "reference_answer": "填写第23题参考实现或验收条件。",
+        "rubric": [
+          {"point": "程序结构完整", "score": 2},
+          {"point": "核心逻辑正确", "score": 4},
+          {"point": "输出符合要求", "score": 2},
+          {"point": "边界处理合理", "score": 2}
+        ]
+      },
+      "fallback_grading": {
+        "mode": "keyword_points",
+        "points": [
+          {"keywords": ["class", "main"], "score": 2},
+          {"keywords": ["System.out"], "score": 2}
+        ]
+      }
+    },
+    {
+      "id": 24,
+      "type": "code",
+      "score": 20,
+      "section": "四、编程题",
+      "extract": {
+        "source": "code_table",
+        "table_index": 1
+      },
+      "llm": {
+        "enabled": true,
+        "prompt": "填写第24题题干。",
+        "reference_answer": "填写第24题参考实现或验收条件。",
+        "rubric": [
+          {"point": "类结构和继承关系正确", "score": 6},
+          {"point": "构造、封装、抽象方法完整", "score": 6},
+          {"point": "面积计算与重写正确", "score": 4},
+          {"point": "main 测试输出满足要求", "score": 4}
+        ]
+      },
+      "fallback_grading": {
+        "mode": "keyword_points",
+        "points": [
+          {"keywords": ["abstract class", "getArea"], "score": 4},
+          {"keywords": ["extends Geometric", "Math.PI"], "score": 4}
+        ]
+      }
+    },
+    {
+      "id": 25,
+      "type": "code",
+      "score": 20,
+      "section": "四、编程题",
+      "extract": {
+        "source": "code_table",
+        "table_index": 2
+      },
+      "llm": {
+        "enabled": true,
+        "prompt": "填写第25题题干。",
+        "reference_answer": "填写第25题参考实现或验收条件。",
+        "rubric": [
+          {"point": "Device 类设计正确", "score": 3},
+          {"point": "HashMap 存储结构正确", "score": 5},
+          {"point": "add/get/remove/count 方法完整", "score": 8},
+          {"point": "main 演示流程完整", "score": 4}
+        ]
+      },
+      "fallback_grading": {
+        "mode": "keyword_points",
+        "points": [
+          {"keywords": ["HashMap", "Device"], "score": 4},
+          {"keywords": ["put", "get", "remove"], "score": 4}
+        ]
+      }
+    }
+  ]
+}

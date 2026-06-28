@@ -1,0 +1,6 @@
+interface:
+  display_name: "批量机考评分"
+  short_description: "按 exam_config 配置提取答卷、评分并导出成绩"
+  default_prompt: "Use $batch-exam-grading to batch grade docx exam papers from an exam_config.json definition and export an Excel score sheet."
+policy:
+  allow_implicit_invocation: true
