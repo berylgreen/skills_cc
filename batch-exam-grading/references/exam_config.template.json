@@ -27,6 +27,8 @@
     "code_min_length": 20
   },
   "llm": {
+    "mode": "agent_runner",
+    "agent_backend": "claude",
     "provider": "openai",
     "model": "",
     "require_for_subjective": true,

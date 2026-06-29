@@ -80,6 +80,8 @@
 
 ## 6. 上线前 1 分钟检查
 
+- [ ] 主观题模式是否正确：`llm.mode = llm_api` 或 `agent_runner`
+- [ ] 如果使用 `agent_runner`，`llm.agent_backend` 是否已设置为 `claude` 或 `codex`
 - [ ] 学号能提取
 - [ ] 小题数量对得上
 - [ ] 客观题答案已更新

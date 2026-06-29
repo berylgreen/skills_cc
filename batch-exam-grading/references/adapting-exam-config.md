@@ -42,9 +42,23 @@
 
 主观题评分策略通常可以长期复用：
 
+- `mode`
+- `agent_backend`
 - `provider`
 - `require_for_subjective`
 - `review_policy`
+
+推荐的跨平台语义是：
+
+- `mode = "llm_api"`：直接走模型 API
+- `mode = "agent_runner"`：走本地代理流程
+- `agent_backend = "claude" | "codex"`：当 `mode = "agent_runner"` 时决定具体平台
+
+推荐的跨平台主观题配置组合示例：
+
+- Claude：`mode = "agent_runner"` + `agent_backend = "claude"`
+- Codex：`mode = "agent_runner"` + `agent_backend = "codex"`
+- API：`mode = "llm_api"` + `provider = "openai"`（或其它 provider）
 
 推荐长期保留的复核策略：
 

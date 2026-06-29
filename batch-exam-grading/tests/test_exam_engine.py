@@ -78,6 +78,9 @@ class ExamEngineTests(unittest.TestCase):
                 "code_table_keywords": ["class", "public", "System.out"],
                 "code_min_length": 20
             },
+            "llm": {
+                "mode": "llm_api"
+            },
             "questions": [
                 {
                     "id": 1,
@@ -296,6 +299,44 @@ class ExamEngineTests(unittest.TestCase):
         finally:
             wb.close()
             del ws
+    def test_agent_runner_mode_prepare_exports_requests_without_calling_openai(self):
+        self.assertIsNotNone(load_exam_config, "load_exam_config 未实现")
+        self.assertIsNotNone(llm_grade_module, "llm_grade 模块未实现")
+        config = load_exam_config(self.config_path)
+        config.setdefault("llm", {})["mode"] = "agent_runner"
+        config["llm"]["agent_backend"] = "claude"
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        requests_output = os.path.join(self.tempdir, "llm_requests.jsonl")
+        with mock.patch("sys.argv", [
+            "llm_grade.py",
+            "--config", self.config_path,
+            "--mode", "agent_runner",
+            "--requests-output", requests_output,
+        ]), mock.patch.dict(os.environ, {"BATCH_EXAM_GRADING_TEST": "1"}):
+            llm_grade_module.main()
+        self.assertTrue(os.path.exists(requests_output))
+        with open(requests_output, encoding="utf-8") as f:
+            rows = [json.loads(line) for line in f if line.strip()]
+        self.assertEqual([item["question_id"] for item in rows], [3, 4])
+        self.assertTrue(all("request_hash" in item for item in rows))
+
+    def test_legacy_claude_agent_mode_is_normalized_to_agent_runner(self):
+        self.assertIsNotNone(load_exam_config, "load_exam_config 未实现")
+        self.assertIsNotNone(llm_grade_module, "llm_grade 模块未实现")
+        config = load_exam_config(self.config_path)
+        config.setdefault("llm", {})["mode"] = "claude_agent"
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        requests_output = os.path.join(self.tempdir, "legacy_llm_requests.jsonl")
+        with mock.patch("sys.argv", [
+            "llm_grade.py",
+            "--config", self.config_path,
+            "--mode", "claude_agent",
+            "--requests-output", requests_output,
+        ]), mock.patch.dict(os.environ, {"BATCH_EXAM_GRADING_TEST": "1"}):
+            llm_grade_module.main()
+        self.assertTrue(os.path.exists(requests_output))
 
 
 if __name__ == "__main__":

@@ -131,6 +131,32 @@ def apply_review_policy(result: Dict[str, Any], review_policy: Dict[str, Any], m
     return result
 
 
+def normalize_llm_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    llm_cfg = config.setdefault("llm", {})
+    mode = llm_cfg.get("mode", "llm_api")
+    if mode == "claude_agent":
+        llm_cfg["mode"] = "agent_runner"
+        llm_cfg.setdefault("agent_backend", "claude")
+    elif llm_cfg.get("mode") == "agent_runner":
+        llm_cfg.setdefault("agent_backend", "claude")
+    return config
+
+
+def llm_mode(config: Dict[str, Any]) -> str:
+    return config.get("llm", {}).get("mode", "llm_api")
+
+
+def llm_agent_backend(config: Dict[str, Any]) -> str:
+    return config.get("llm", {}).get("agent_backend", "")
+
+
+def call_claude_agent_placeholder(request: Dict[str, Any]) -> Dict[str, Any]:
+    raise RuntimeError(
+        "当前配置为 claude_agent 模式。请先根据 llm_requests.jsonl 使用 Claude Code / agent 完成评分，"
+        "并生成与 llm_grades.jsonl 兼容的结果文件后再执行合并。"
+    )
+
+
 def grade_with_openai(
     requests: List[Dict[str, Any]],
     model: str,
@@ -172,7 +198,7 @@ def grade_with_openai(
 def parse_args():
     parser = argparse.ArgumentParser(description="程序分析题/编程题大模型评分")
     parser.add_argument("--config", default="exam_config.json")
-    parser.add_argument("--mode", choices=["prepare", "openai"], default="prepare")
+    parser.add_argument("--mode", choices=["prepare", "openai", "agent_runner", "claude_agent"], default="prepare")
     parser.add_argument("--requests-output", default=DEFAULT_REQUESTS)
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
     parser.add_argument("--model", default=os.environ.get("OPENAI_MODEL", ""))
@@ -181,16 +207,37 @@ def parse_args():
 
 def main():
     args = parse_args()
-    config = load_exam_config(args.config)
+    config = normalize_llm_config(load_exam_config(args.config))
+    configured_mode = llm_mode(config)
+    agent_backend = llm_agent_backend(config)
+    cli_mode = "agent_runner" if args.mode == "claude_agent" else args.mode
     model = args.model or config.get("llm", {}).get("model", "")
-    if args.mode == "openai" and not model:
+    if cli_mode == "openai" and not model:
         raise SystemExit("openai 模式需要 --model 或 exam_config.llm.model 或 OPENAI_MODEL")
+    if cli_mode == "openai" and configured_mode == "agent_runner":
+        raise SystemExit("当前 exam_config.llm.mode=agent_runner，请改用 --mode agent_runner 或切回 llm_api")
+    if cli_mode == "agent_runner" and configured_mode != "agent_runner":
+        raise SystemExit("当前 exam_config.llm.mode 不是 agent_runner，请先修改配置或使用 --mode openai")
     if model:
         config.setdefault("llm", {})["model"] = model
     requests = build_llm_requests(config)
-    if args.mode == "prepare":
+    if cli_mode == "prepare":
         count = write_jsonl(args.requests_output, requests)
         print(f"已生成待评请求: {args.requests_output} ({count}条)")
+        return
+    if cli_mode == "agent_runner":
+        count = write_jsonl(args.requests_output, requests)
+        if agent_backend == "codex":
+            platform_hint = "Codex agent"
+        else:
+            platform_hint = "Claude Code / agent"
+        message = (
+            f"已生成 Agent 待评请求: {args.requests_output} ({count}条)。"
+            f"当前 agent_backend={agent_backend or 'claude'}，请使用 {platform_hint} 对这些请求评分，并产出与 llm_grades.jsonl 兼容的结果文件。"
+        )
+        print(message)
+        if not os.environ.get("BATCH_EXAM_GRADING_TEST"):
+            raise SystemExit(message)
         return
     review_policy = config.get("llm", {}).get("review_policy", {})
     cache_path = config.get("files", {}).get("llm_cache_jsonl", "llm_cache.jsonl")
