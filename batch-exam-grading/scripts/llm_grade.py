@@ -93,13 +93,42 @@ def extract_output_json(response: Any) -> Dict[str, Any]:
     raise ValueError("无法从模型响应中提取 JSON 文本")
 
 
-def call_openai(prompt: str, model: str) -> Dict[str, Any]:
+def call_llm_api(prompt: str, llm_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    provider = llm_cfg.get("provider", "openai")
+    if provider not in {"openai", "openai_compatible"}:
+        raise RuntimeError(f"暂不支持的 llm.provider: {provider}")
     try:
         from openai import OpenAI
     except ImportError as exc:
         raise RuntimeError("缺少 openai 包，请先执行 pip install openai") from exc
 
-    client = OpenAI()
+    api_key_env = llm_cfg.get("api_key_env", "OPENAI_API_KEY")
+    api_key = os.environ.get(api_key_env, "")
+    if not api_key:
+        raise RuntimeError(f"缺少 API Key，请先设置环境变量 {api_key_env}")
+
+    client_kwargs: Dict[str, Any] = {"api_key": api_key}
+    api_base = llm_cfg.get("api_base", "")
+    if api_base:
+        client_kwargs["base_url"] = api_base
+    organization = llm_cfg.get("organization", "")
+    if organization:
+        client_kwargs["organization"] = organization
+    project = llm_cfg.get("project", "")
+    if project:
+        client_kwargs["project"] = project
+    timeout_seconds = llm_cfg.get("timeout_seconds")
+    if timeout_seconds:
+        client_kwargs["timeout"] = timeout_seconds
+    headers = llm_cfg.get("headers") or {}
+    if headers:
+        client_kwargs["default_headers"] = headers
+
+    model = llm_cfg.get("model", "")
+    if not model:
+        raise RuntimeError("llm_api 模式需要 llm.model 或 --model")
+
+    client = OpenAI(**client_kwargs)
     response = client.responses.create(
         model=model,
         input=[
@@ -137,8 +166,18 @@ def normalize_llm_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if mode == "claude_agent":
         llm_cfg["mode"] = "agent_runner"
         llm_cfg.setdefault("agent_backend", "claude")
+    elif mode == "openai":
+        llm_cfg["mode"] = "llm_api"
     elif llm_cfg.get("mode") == "agent_runner":
         llm_cfg.setdefault("agent_backend", "claude")
+    llm_cfg.setdefault("provider", "openai")
+    llm_cfg.setdefault("api_key_env", "OPENAI_API_KEY")
+    llm_cfg.setdefault("api_base", "")
+    llm_cfg.setdefault("organization", "")
+    llm_cfg.setdefault("project", "")
+    llm_cfg.setdefault("headers", {})
+    llm_cfg.setdefault("timeout_seconds", 120)
+    llm_cfg.setdefault("max_retries", 2)
     return config
 
 
@@ -163,9 +202,9 @@ def call_claude_agent_placeholder(request: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def grade_with_openai(
+def grade_with_llm_api(
     requests: List[Dict[str, Any]],
-    model: str,
+    llm_cfg: Dict[str, Any],
     review_policy: Dict[str, Any],
     cached_results: Dict[str, Dict[str, Any]] | None = None,
 ) -> List[Dict[str, Any]]:
@@ -178,7 +217,7 @@ def grade_with_openai(
             continue
         print(f"评分 {idx}/{len(requests)}: {request['student_id']} Q{request['question_id']}")
         try:
-            result = call_openai(build_prompt(request), model)
+            result = call_llm_api(build_prompt(request), llm_cfg)
             result = apply_review_policy(result, review_policy, float(request["max_score"]))
         except Exception as exc:
             result = {
@@ -204,10 +243,10 @@ def grade_with_openai(
 def parse_args():
     parser = argparse.ArgumentParser(description="程序分析题/编程题大模型评分")
     parser.add_argument("--config", default="exam_config.json")
-    parser.add_argument("--mode", choices=["prepare", "openai", "agent_runner", "claude_agent"], default="prepare")
+    parser.add_argument("--mode", choices=["prepare", "llm_api", "openai", "agent_runner", "claude_agent"], default="prepare")
     parser.add_argument("--requests-output", default=DEFAULT_REQUESTS)
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
-    parser.add_argument("--model", default=os.environ.get("OPENAI_MODEL", ""))
+    parser.add_argument("--model", default="")
     return parser.parse_args()
 
 
@@ -216,16 +255,21 @@ def main():
     config = normalize_llm_config(load_exam_config(args.config))
     configured_mode = llm_mode(config)
     agent_backend = llm_agent_backend(config)
-    cli_mode = "agent_runner" if args.mode == "claude_agent" else args.mode
-    model = args.model or config.get("llm", {}).get("model", "")
-    if cli_mode == "openai" and not model:
-        raise SystemExit("openai 模式需要 --model 或 exam_config.llm.model 或 OPENAI_MODEL")
-    if cli_mode == "openai" and configured_mode == "agent_runner":
+    cli_mode = args.mode
+    if cli_mode == "claude_agent":
+        cli_mode = "agent_runner"
+    elif cli_mode == "openai":
+        cli_mode = "llm_api"
+    llm_cfg = config.setdefault("llm", {})
+    if args.model:
+        llm_cfg["model"] = args.model
+    model = llm_cfg.get("model", "")
+    if cli_mode == "llm_api" and not model:
+        raise SystemExit("llm_api 模式需要 --model 或 exam_config.llm.model")
+    if cli_mode == "llm_api" and configured_mode == "agent_runner":
         raise SystemExit("当前 exam_config.llm.mode=agent_runner，请改用 --mode agent_runner 或切回 llm_api")
     if cli_mode == "agent_runner" and configured_mode != "agent_runner":
-        raise SystemExit("当前 exam_config.llm.mode 不是 agent_runner，请先修改配置或使用 --mode openai")
-    if model:
-        config.setdefault("llm", {})["model"] = model
+        raise SystemExit("当前 exam_config.llm.mode 不是 agent_runner，请先修改配置或使用 --mode llm_api")
     requests_output = resolve_requests_output(config, args.requests_output)
     requests = build_llm_requests(config)
     if cli_mode == "prepare":
@@ -246,10 +290,10 @@ def main():
         if not os.environ.get("BATCH_EXAM_GRADING_TEST"):
             raise SystemExit(message)
         return
-    review_policy = config.get("llm", {}).get("review_policy", {})
+    review_policy = llm_cfg.get("review_policy", {})
     cache_path = config.get("files", {}).get("llm_cache_jsonl", "llm_cache.jsonl")
     cached_results = load_cached_results(cache_path, args.output)
-    rows = grade_with_openai(requests, model, review_policy, cached_results=cached_results)
+    rows = grade_with_llm_api(requests, llm_cfg, review_policy, cached_results=cached_results)
     count = write_jsonl(args.output, rows)
     merged_cache = {item["request_hash"]: item for item in cached_results.values()}
     for row in rows:

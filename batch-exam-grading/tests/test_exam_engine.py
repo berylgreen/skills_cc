@@ -222,10 +222,10 @@ class ExamEngineTests(unittest.TestCase):
             "deductions": [],
             "evidence": ["cached"]
         }]
-        with mock.patch.object(llm_grade_module, "call_openai", side_effect=AssertionError("不应调用模型")):
-            rows = llm_grade_module.grade_with_openai(
+        with mock.patch.object(llm_grade_module, "call_llm_api", side_effect=AssertionError("不应调用模型")):
+            rows = llm_grade_module.grade_with_llm_api(
                 requests[:1],
-                model="dummy-model",
+                {"provider": "openai", "model": "dummy-model"},
                 review_policy={},
                 cached_results={requests[0]["request_hash"]: cached_rows[0]}
             )
@@ -329,7 +329,39 @@ class ExamEngineTests(unittest.TestCase):
         finally:
             wb.close()
             del ws
-    def test_grade_exam_cleanup_intermediate_files_removes_generated_jsonl(self):
+    def test_llm_request_hash_changes_when_api_base_changes(self):
+        self.assertIsNotNone(load_exam_config, "load_exam_config 未实现")
+        self.assertIsNotNone(build_llm_requests, "build_llm_requests 未实现")
+        config = load_exam_config(self.config_path)
+        config.setdefault("llm", {})["provider"] = "openai"
+        config["llm"]["model"] = "demo-model"
+        config["llm"]["api_base"] = "https://api.example.com/v1"
+        first_hash = build_llm_requests(config)[0]["request_hash"]
+        config["llm"]["api_base"] = "https://mirror.example.com/v1"
+        second_hash = build_llm_requests(config)[0]["request_hash"]
+        self.assertNotEqual(first_hash, second_hash)
+
+    def test_normalize_llm_config_supports_legacy_openai_mode_and_defaults(self):
+        self.assertIsNotNone(llm_grade_module, "llm_grade 模块未实现")
+        config = {"llm": {"mode": "openai"}}
+        normalized = llm_grade_module.normalize_llm_config(config)
+        self.assertEqual(normalized["llm"]["mode"], "llm_api")
+        self.assertEqual(normalized["llm"]["provider"], "openai")
+        self.assertEqual(normalized["llm"]["api_key_env"], "OPENAI_API_KEY")
+        self.assertEqual(normalized["llm"]["api_base"], "")
+        self.assertEqual(normalized["llm"]["headers"], {})
+
+    def test_call_llm_api_requires_named_api_key_env(self):
+        self.assertIsNotNone(llm_grade_module, "llm_grade 模块未实现")
+        llm_cfg = {
+            "provider": "openai",
+            "model": "demo-model",
+            "api_key_env": "CUSTOM_EXAM_API_KEY"
+        }
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "CUSTOM_EXAM_API_KEY"):
+                llm_grade_module.call_llm_api("prompt", llm_cfg)
+
         self.assertIsNotNone(grade_exam_module, "grade_exam 模块未实现")
         config = load_exam_config(self.config_path)
         requests_path = os.path.join(self.tempdir, "llm_requests.jsonl")

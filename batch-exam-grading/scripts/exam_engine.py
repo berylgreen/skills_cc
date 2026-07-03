@@ -283,9 +283,11 @@ def _normalize_score(value: Any) -> Any:
 
 
 def build_request_hash(config: Dict[str, Any], request: Dict[str, Any]) -> str:
+    llm_cfg = config.get("llm", {})
     payload = {
-        "provider": config.get("llm", {}).get("provider", "openai"),
-        "model": config.get("llm", {}).get("model", ""),
+        "provider": llm_cfg.get("provider", "openai"),
+        "model": llm_cfg.get("model", ""),
+        "api_base": llm_cfg.get("api_base", ""),
         "question_id": request["question_id"],
         "question_type": request["question_type"],
         "max_score": request["max_score"],
