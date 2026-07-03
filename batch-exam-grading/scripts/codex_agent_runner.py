@@ -13,6 +13,7 @@ Codex agent 主观题评分执行器骨架（二版）。
 - 当前版本仍不直接调用真实 Codex 平台能力。
 - `run_codex_grading()` 是未来接真实执行器的位置。
 - 默认将每条请求写成 needs_human_review=true 的占位结果，便于后续接入真实执行器。
+- Codex runner 只负责生成兼容的 `llm_grades.jsonl`，评分结束后的临时文件清理由 `grade_exam.py` 统一处理。
 """
 
 import argparse

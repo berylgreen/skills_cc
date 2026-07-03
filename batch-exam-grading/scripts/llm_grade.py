@@ -150,6 +150,12 @@ def llm_agent_backend(config: Dict[str, Any]) -> str:
     return config.get("llm", {}).get("agent_backend", "")
 
 
+def resolve_requests_output(config: Dict[str, Any], cli_value: str) -> str:
+    if cli_value != DEFAULT_REQUESTS:
+        return cli_value
+    return config.get("files", {}).get("llm_requests_jsonl", DEFAULT_REQUESTS)
+
+
 def call_claude_agent_placeholder(request: Dict[str, Any]) -> Dict[str, Any]:
     raise RuntimeError(
         "当前配置为 claude_agent 模式。请先根据 llm_requests.jsonl 使用 Claude Code / agent 完成评分，"
@@ -220,19 +226,20 @@ def main():
         raise SystemExit("当前 exam_config.llm.mode 不是 agent_runner，请先修改配置或使用 --mode openai")
     if model:
         config.setdefault("llm", {})["model"] = model
+    requests_output = resolve_requests_output(config, args.requests_output)
     requests = build_llm_requests(config)
     if cli_mode == "prepare":
-        count = write_jsonl(args.requests_output, requests)
-        print(f"已生成待评请求: {args.requests_output} ({count}条)")
+        count = write_jsonl(requests_output, requests)
+        print(f"已生成待评请求: {requests_output} ({count}条)")
         return
     if cli_mode == "agent_runner":
-        count = write_jsonl(args.requests_output, requests)
+        count = write_jsonl(requests_output, requests)
         if agent_backend == "codex":
             platform_hint = "Codex agent"
         else:
             platform_hint = "Claude Code / agent"
         message = (
-            f"已生成 Agent 待评请求: {args.requests_output} ({count}条)。"
+            f"已生成 Agent 待评请求: {requests_output} ({count}条)。"
             f"当前 agent_backend={agent_backend or 'claude'}，请使用 {platform_hint} 对这些请求评分，并产出与 llm_grades.jsonl 兼容的结果文件。"
         )
         print(message)

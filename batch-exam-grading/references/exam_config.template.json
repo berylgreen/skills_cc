@@ -3,6 +3,7 @@
     "answer_folder": "answers",
     "roster_file": "roster.xlsx",
     "output_xlsx": "scores.xlsx",
+    "llm_requests_jsonl": "llm_requests.jsonl",
     "llm_grades_jsonl": "llm_grades.jsonl",
     "llm_cache_jsonl": "llm_cache.jsonl"
   },
@@ -17,6 +18,10 @@
       "choice": {
         "start_keywords": ["单选题", "选择题", "客观题"],
         "end_keywords": ["填空题", "程序分析", "简答题"]
+      },
+      "fill": {
+        "start_keywords": ["填空题"],
+        "end_keywords": ["程序分析", "简答题", "编程题"]
       },
       "analysis": {
         "start_keywords": ["程序分析", "分析题", "简答题"],
@@ -37,6 +42,10 @@
       "force_review_confidence": ["low"],
       "force_review_full_score": true
     }
+  },
+  "llm_notes": {
+    "default_policy": "对存在 analysis/code 题的试卷，默认必须保留主观题模型评分流程。像‘根据当前文件夹评分’‘新建一个 gpt_1 保存成绩’这类自然语言需求，只表示输入来源和输出命名/目录需求，不构成关闭 llm.enabled 或把 require_for_subjective 改成 false 的依据。",
+    "fallback_policy": "fallback_grading 仅用于用户显式授权降级的例外路径，不是默认流程。"
   },
   "questions": [
     {
@@ -71,7 +80,8 @@
       "score": 2,
       "section": "二、填空题",
       "extract": {
-        "source": "regex",
+        "source": "section_regex",
+        "section_name": "fill",
         "pattern": "1[、.．]\\s*(.+)"
       },
       "grading": {
@@ -85,7 +95,8 @@
       "score": 2,
       "section": "二、填空题",
       "extract": {
-        "source": "regex",
+        "source": "section_regex",
+        "section_name": "fill",
         "pattern": "2[、.．]\\s*(.+)"
       },
       "grading": {
@@ -114,7 +125,8 @@
       "fallback_grading": {
         "mode": "contains_any",
         "answers": ["标准答案关键词"]
-      }
+      },
+      "fallback_note": "仅在用户显式授权放弃主观题模型评分时才启用；默认不要通过关闭 llm.enabled 或把 require_for_subjective 改成 false 来走这条路径。"
     },
     {
       "id": 22,
@@ -137,7 +149,8 @@
       "fallback_grading": {
         "mode": "contains_any",
         "answers": ["标准答案关键词"]
-      }
+      },
+      "fallback_note": "仅在用户显式授权放弃主观题模型评分时才启用；默认不要通过关闭 llm.enabled 或把 require_for_subjective 改成 false 来走这条路径。"
     },
     {
       "id": 23,
@@ -165,7 +178,8 @@
           {"keywords": ["class", "main"], "score": 2},
           {"keywords": ["System.out"], "score": 2}
         ]
-      }
+      },
+      "fallback_note": "仅在用户显式授权放弃主观题模型评分时才启用；默认不要通过关闭 llm.enabled 或把 require_for_subjective 改成 false 来走这条路径。"
     },
     {
       "id": 24,
@@ -193,7 +207,8 @@
           {"keywords": ["abstract class", "getArea"], "score": 4},
           {"keywords": ["extends Geometric", "Math.PI"], "score": 4}
         ]
-      }
+      },
+      "fallback_note": "仅在用户显式授权放弃主观题模型评分时才启用；默认不要通过关闭 llm.enabled 或把 require_for_subjective 改成 false 来走这条路径。"
     },
     {
       "id": 25,
@@ -221,7 +236,8 @@
           {"keywords": ["HashMap", "Device"], "score": 4},
           {"keywords": ["put", "get", "remove"], "score": 4}
         ]
-      }
+      },
+      "fallback_note": "仅在用户显式授权放弃主观题模型评分时才启用；默认不要通过关闭 llm.enabled 或把 require_for_subjective 改成 false 来走这条路径。"
     }
   ]
 }

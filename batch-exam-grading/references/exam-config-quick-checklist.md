@@ -43,7 +43,7 @@
 - `llm.review_policy`
 - 常见 `extract.source`（如 `choice_inline`、`section_question`、`code_table`）
 
-只有文件路径、名单字段、模型策略真的变了，再改这些。
+只有文件路径、名单字段、模型策略真的变了，再改这些。补充规则：输出文件改名、按当前文件夹评分、快速出成绩等需求，不构成关闭 LLM、启用 fallback 或修改 `require_for_subjective` 的依据。
 
 ---
 
@@ -82,15 +82,19 @@
 
 - [ ] 主观题模式是否正确：`llm.mode = llm_api` 或 `agent_runner`
 - [ ] 如果使用 `agent_runner`，`llm.agent_backend` 是否已设置为 `claude` 或 `codex`
+- [ ] 若存在 `analysis` / `code` 题，是否明确保留了 `prepare -> 模型/agent 评分 -> merge` 完整链路
+- [ ] 输出目录/文件名需求是否只体现在 `files.output_xlsx` 等路径，而未误改 `llm.require_for_subjective`
 - [ ] 学号能提取
 - [ ] 小题数量对得上
 - [ ] 客观题答案已更新
 - [ ] 主观题 rubric 已更新
 - [ ] 同一大题的 `section` 文本完全一致
 - [ ] 主观题请求不串题
+- [ ] 如果使用 `agent_runner`，`files.llm_requests_jsonl` 路径是否符合当前批次输出习惯
 - [ ] Excel 能输出 `Q1..Qn`
 - [ ] Excel 能输出大题小计
 - [ ] 四个大题小计之和等于总分
+- [ ] 未把“快速出成绩 / 新建一个文件名”误解释为允许 fallback
 
 ---
 

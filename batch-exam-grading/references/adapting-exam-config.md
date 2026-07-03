@@ -27,8 +27,9 @@
 - `answer_folder`
 - `roster_file`（名单文件字段，默认推荐 `roster.xlsx`；旧字段 `roster_csv` 继续兼容，若两者同时存在则优先使用 `roster_file`）
 - `output_xlsx`
-- `llm_grades_jsonl`
-- `llm_cache_jsonl`
+- `llm_requests_jsonl`（LLM 请求导出文件路径，默认 `llm_requests.jsonl`，主要用于 agent-runner / Codex 流程）
+- `llm_grades_jsonl`（主流程合并主观题评分结果的文件路径，默认 `llm_grades.jsonl`；若改了这个路径，应同步让 OpenAI / Codex runner 的输出路径与之保持一致）
+- `llm_cache_jsonl`（LLM 评分缓存文件路径，默认 `llm_cache.jsonl`，仅在本轮评分流程中临时复用）
 
 ### 2. `roster`
 
@@ -40,13 +41,18 @@
 
 ### 3. `llm`
 
-主观题评分策略通常可以长期复用：
+主观题评分后端通常可以长期复用，但这不表示可以放弃主观题模型评分本身：
 
 - `mode`
 - `agent_backend`
 - `provider`
 - `require_for_subjective`
 - `review_policy`
+
+其中：
+
+- `mode` / `provider` / `agent_backend` 表示主观题模型评分的执行后端选择，不表示可以跳过模型评分。
+- `require_for_subjective` 虽然属于 `llm` 配置的一部分，但它不应被当作普通调参项。对包含 `analysis` / `code` 的试卷，默认保持强制模型评分；不要因为用户只提到“导出成绩”“新建一个输出目录/文件名”“按当前文件夹评分”而临时关闭。
 
 推荐的跨平台语义是：
 
@@ -59,6 +65,8 @@
 - Claude：`mode = "agent_runner"` + `agent_backend = "claude"`
 - Codex：`mode = "agent_runner"` + `agent_backend = "codex"`
 - API：`mode = "llm_api"` + `provider = "openai"`（或其它 provider）
+
+上述三种组合的区别仅在主观题评分的执行后端，不在于是否进行模型评分；它们都要求产出兼容的主观题评分结果后再合并成绩。
 
 推荐长期保留的复核策略：
 
@@ -274,6 +282,8 @@
 3. 客观题答案
 4. 主观题 rubric
 
+补充规则：如果用户提出“新建一个 xxx 保存成绩”“按当前文件夹直接评分”“先导出一个成绩表”等需求，默认仅解释为输入来源和输出命名需求，不自动推断为允许更改 `llm` 主观题评分策略，也不构成关闭 `llm.enabled` 或把 `require_for_subjective` 改成 `false` 的依据。
+
 ### 4. 再检查提取是否仍成立
 
 重点看：
@@ -314,7 +324,7 @@
 
 - 逐小题评分（`Q{id}`）
 - 按 `section` 自动统计大题总分
-- 主观题强制 LLM 或 fallback 评分
+- 主观题默认强制 LLM；fallback 仅为显式授权的例外路径
 - Excel 输出每题分、总分、大题分
 
 因此，换卷时优先把它当成“改配置”的工作，而不是“改脚本”的工作。只有当答案提取方式真的变了，才去调整 Python。

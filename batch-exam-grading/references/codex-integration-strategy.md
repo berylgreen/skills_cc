@@ -7,8 +7,8 @@
 目标不是重写整套评分系统，而是复用现有结构：
 
 - `exam_config.json`
-- `llm_requests.jsonl`
-- `llm_grades.jsonl`
+- `files.llm_requests_jsonl` 对应的请求 JSONL 文件（默认文件名为 `llm_requests.jsonl`）
+- `files.llm_grades_jsonl` 对应的结果 JSONL 文件（默认文件名为 `llm_grades.jsonl`）
 - `exam_engine.py`
 - `grade_exam.py`
 - Excel 成绩输出链路
@@ -34,8 +34,8 @@
    - Codex 更适合作为 `agent_runner` 的一个具体执行后端，而不是重新发明一套 API 模式
 
 3. **便于保留文件协议**
-   - CLI 方案天然适合消费 `llm_requests.jsonl`
-   - 也天然适合产出 `llm_grades.jsonl`
+   - CLI 方案天然适合消费 `files.llm_requests_jsonl` 指向的请求文件（默认文件名为 `llm_requests.jsonl`）
+   - 也天然适合通过 `--output` 产出结果文件；若未显式指定，则默认文件名为 `llm_grades.jsonl`
 
 4. **后续可以再升级**
    - 如果未来 Codex SDK 更稳定、并发要求更高、日志要求更完整，再从 CLI 升级到 SDK
@@ -79,8 +79,8 @@
 
 ### 3. 中间协议层
 
-- `llm_requests.jsonl`
-- `llm_grades.jsonl`
+- `files.llm_requests_jsonl` 对应的请求 JSONL 文件（默认文件名为 `llm_requests.jsonl`）
+- `files.llm_grades_jsonl` 对应的结果 JSONL 文件（默认文件名为 `llm_grades.jsonl`）
 
 这是最值得保持稳定的一层，也是跨平台迁移时最重要的资产。
 
@@ -96,19 +96,20 @@
 
 建议它长期保留以下职责边界：
 
-1. 读取 `llm_requests.jsonl`
+1. 读取 `files.llm_requests_jsonl` 指向的请求文件（默认文件名为 `llm_requests.jsonl`）
 2. 校验请求字段
 3. 支持按 `request_hash` 断点续跑
 4. 调用 Codex 执行评分
-5. 把结果标准化为兼容的 `llm_grades.jsonl`
+5. 把结果标准化为与 `files.llm_grades_jsonl` 对应标准结构兼容的结果文件（默认文件名为 `llm_grades.jsonl`）
 
 它**不应**负责：
 
 - 客观题评分
 - 大题汇总
 - 最终 Excel 合并
+- 评分结束后的临时文件清理
 
-这些仍应交给 `exam_engine.py` / `grade_exam.py`。
+这些仍应交给 `exam_engine.py` / `grade_exam.py`，其中清理动作统一由 `grade_exam.py` 在成功导出 Excel 后执行。
 
 ---
 
@@ -147,7 +148,9 @@
 
 ## 六、推荐的请求格式
 
-建议继续使用统一的 `llm_requests.jsonl`，每行至少包含：
+建议继续使用统一的请求 JSONL 协议文件，由 `files.llm_requests_jsonl` 指定路径；若未配置，默认文件名为 `llm_requests.jsonl`。每行至少包含：
+
+若需要自定义请求导出路径，可在 `exam_config.json` 的 `files.llm_requests_jsonl` 中指定；若未配置，则默认使用 `llm_requests.jsonl`。
 
 ```json
 {
@@ -172,7 +175,7 @@
 
 ## 七、推荐的结果格式
 
-建议 `llm_grades.jsonl` 继续保持平台无关的标准结构，每行至少包含：
+建议 `files.llm_grades_jsonl` 对应的结果文件继续保持平台无关的标准结构；若未配置，则默认文件名为 `llm_grades.jsonl`。每行至少包含：
 
 ```json
 {
@@ -274,10 +277,10 @@
 
 - [ ] `exam_config.json` 已使用 `llm.mode = "agent_runner"`
 - [ ] `llm.agent_backend = "codex"`
-- [ ] `llm_requests.jsonl` 已能稳定生成
+- [ ] `files.llm_requests_jsonl` 指向的请求文件已能稳定生成
 - [ ] 每条请求都带 `request_hash`
 - [ ] `run_codex_grading(task)` 能拿到结构化结果或明确错误
-- [ ] `normalize_codex_result(...)` 产出的字段与 `llm_grades.jsonl` 兼容
+- [ ] `normalize_codex_result(...)` 产出的字段与 `files.llm_grades_jsonl` 对应的标准结果结构兼容
 - [ ] 错误记录也能正常落盘
 - [ ] 再次运行时，已完成请求会被正确跳过
 - [ ] `grade_exam.py` 能继续正常合并成绩

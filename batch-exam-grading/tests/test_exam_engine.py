@@ -10,9 +10,11 @@ import openpyxl
 
 try:
     from scripts.exam_engine import build_llm_requests, grade_roster, load_exam_config
+    from scripts import grade_exam as grade_exam_module
     from scripts import llm_grade as llm_grade_module
 except ImportError:
     build_llm_requests = None
+    grade_exam_module = None
     grade_roster = None
     load_exam_config = None
     llm_grade_module = None
@@ -327,6 +329,34 @@ class ExamEngineTests(unittest.TestCase):
         finally:
             wb.close()
             del ws
+    def test_grade_exam_cleanup_intermediate_files_removes_generated_jsonl(self):
+        self.assertIsNotNone(grade_exam_module, "grade_exam 模块未实现")
+        config = load_exam_config(self.config_path)
+        requests_path = os.path.join(self.tempdir, "llm_requests.jsonl")
+        config["files"]["llm_requests_jsonl"] = requests_path
+        with open(requests_path, "w", encoding="utf-8") as f:
+            f.write("{}\n")
+        with open(self.llm_cache_path, "w", encoding="utf-8") as f:
+            f.write("{}\n")
+        removed, failures = grade_exam_module.cleanup_intermediate_files(config)
+        self.assertCountEqual(removed, [requests_path, self.llm_path, self.llm_cache_path])
+        self.assertEqual(failures, [])
+        self.assertFalse(os.path.exists(requests_path))
+        self.assertFalse(os.path.exists(self.llm_path))
+        self.assertFalse(os.path.exists(self.llm_cache_path))
+        self.assertFalse(os.path.exists(self.output_path))
+
+    def test_grade_exam_cleanup_intermediate_files_skips_final_output(self):
+        self.assertIsNotNone(grade_exam_module, "grade_exam 模块未实现")
+        config = load_exam_config(self.config_path)
+        config["files"]["llm_grades_jsonl"] = self.output_path
+        with open(self.output_path, "w", encoding="utf-8") as f:
+            f.write("final")
+        removed, failures = grade_exam_module.cleanup_intermediate_files(config)
+        self.assertNotIn(self.output_path, removed)
+        self.assertEqual(failures, [])
+        self.assertTrue(os.path.exists(self.output_path))
+
     def test_agent_runner_mode_prepare_exports_requests_without_calling_openai(self):
         self.assertIsNotNone(load_exam_config, "load_exam_config 未实现")
         self.assertIsNotNone(llm_grade_module, "llm_grade 模块未实现")
