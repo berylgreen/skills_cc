@@ -5,7 +5,7 @@
 | 文件 | 说明 |
 |------|------|
 | `exam_config.json` | 试卷结构、评分规则和提取规则 |
-| `roster.csv` | 学生名单 |
+| `roster.xlsx` | 学生名单（默认示例；也兼容 csv） |
 | `answers/*.docx` | 学生答卷 |
 | `grade_exam.py` | 成绩合并与 Excel 导出 |
 | `llm_grade.py` | 主观题请求生成与模型评分 |

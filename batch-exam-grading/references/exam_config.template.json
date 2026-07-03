@@ -1,7 +1,7 @@
 {
   "files": {
     "answer_folder": "answers",
-    "roster_csv": "roster.csv",
+    "roster_file": "roster.xlsx",
     "output_xlsx": "scores.xlsx",
     "llm_grades_jsonl": "llm_grades.jsonl",
     "llm_cache_jsonl": "llm_cache.jsonl"

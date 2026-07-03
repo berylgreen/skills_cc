@@ -25,7 +25,7 @@
 通常只需要改文件名或目录，不需要改字段结构：
 
 - `answer_folder`
-- `roster_csv`
+- `roster_file`（名单文件字段，默认推荐 `roster.xlsx`；旧字段 `roster_csv` 继续兼容，若两者同时存在则优先使用 `roster_file`）
 - `output_xlsx`
 - `llm_grades_jsonl`
 - `llm_cache_jsonl`

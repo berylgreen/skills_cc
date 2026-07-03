@@ -29,7 +29,7 @@ description: >-
 ```text
 工作目录/
 ├── exam_config.json                    # 从 references/exam_config.template.json 复制后填写
-├── roster.csv                          # 学生名单
+├── roster.xlsx                         # 学生名单（默认示例；也兼容 csv）
 ├── answers/                            # 学生答卷 docx
 ├── grade_exam.py
 ├── llm_grade.py

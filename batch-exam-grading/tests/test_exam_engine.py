@@ -53,15 +53,15 @@ class ExamEngineTests(unittest.TestCase):
         config = {
             "files": {
                 "answer_folder": self.answer_dir,
-                "roster_csv": self.roster_path,
+                "roster_file": self.roster_xlsx_path,
                 "output_xlsx": self.output_path,
                 "llm_grades_jsonl": self.llm_path,
                 "llm_cache_jsonl": self.llm_cache_path
             },
             "roster": {
-                "student_id_field": "sid",
-                "name_field": "student_name",
-                "seq_field": "index"
+                "student_id_field": "学号",
+                "name_field": "姓名",
+                "seq_field": "序号"
             },
             "parsing": {
                 "student_id_pattern": r"(\\d{7})",
@@ -230,17 +230,45 @@ class ExamEngineTests(unittest.TestCase):
         self.assertEqual(rows[0]["score"], 5)
         self.assertEqual(rows[0]["evidence"], ["cached"])
 
-    def test_grade_exam_supports_xlsx_roster_input(self):
+    def test_grade_exam_supports_csv_roster_input(self):
         self.assertIsNotNone(load_exam_config, "load_exam_config 未实现")
         self.assertIsNotNone(grade_roster, "grade_roster 未实现")
         config = load_exam_config(self.config_path)
-        config["files"]["roster_csv"] = self.roster_xlsx_path
+        config["files"]["roster_file"] = self.roster_path
         config["roster"] = {
-            "student_id_field": "学号",
-            "name_field": "姓名",
-            "seq_field": "序号"
+            "student_id_field": "sid",
+            "name_field": "student_name",
+            "seq_field": "index"
         }
         result = grade_roster(config)
+        self.assertEqual(result["roster"][0]["student_id"], "2025001")
+        self.assertEqual(result["roster"][0]["name"], "张三")
+
+    def test_grade_exam_supports_legacy_roster_csv_field(self):
+        self.assertIsNotNone(load_exam_config, "load_exam_config 未实现")
+        self.assertIsNotNone(grade_roster, "grade_roster 未实现")
+        config = load_exam_config(self.config_path)
+        config["files"].pop("roster_file", None)
+        config["files"]["roster_csv"] = self.roster_xlsx_path
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        reloaded = load_exam_config(self.config_path)
+        result = grade_roster(reloaded)
+        self.assertEqual(reloaded["files"]["roster_file"], self.roster_xlsx_path)
+        self.assertEqual(result["roster"][0]["student_id"], "2025001")
+        self.assertEqual(result["roster"][0]["name"], "张三")
+
+    def test_roster_file_takes_precedence_over_legacy_roster_csv(self):
+        self.assertIsNotNone(load_exam_config, "load_exam_config 未实现")
+        self.assertIsNotNone(grade_roster, "grade_roster 未实现")
+        config = load_exam_config(self.config_path)
+        config["files"]["roster_file"] = self.roster_xlsx_path
+        config["files"]["roster_csv"] = self.roster_path
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        reloaded = load_exam_config(self.config_path)
+        result = grade_roster(reloaded)
+        self.assertEqual(reloaded["files"]["roster_file"], self.roster_xlsx_path)
         self.assertEqual(result["roster"][0]["student_id"], "2025001")
         self.assertEqual(result["roster"][0]["name"], "张三")
 

@@ -15,9 +15,19 @@ from openpyxl.utils import get_column_letter
 DEFAULT_LLM_REVIEW_SHEET = "模型评分审计"
 
 
+def _normalize_files_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    files_cfg = config.setdefault("files", {})
+    if files_cfg.get("roster_file"):
+        return config
+    if files_cfg.get("roster_csv"):
+        files_cfg["roster_file"] = files_cfg["roster_csv"]
+    return config
+
+
 def load_exam_config(path: str) -> Dict[str, Any]:
     with open(path, encoding="utf-8-sig") as f:
         config = json.load(f)
+    config = _normalize_files_config(config)
     config["questions"] = sorted(config.get("questions", []), key=lambda item: int(item["id"]))
     return config
 
@@ -317,7 +327,7 @@ def build_llm_requests(config: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def read_roster(config: Dict[str, Any]) -> List[Dict[str, str]]:
     roster_cfg = config.get("roster", {})
-    path = config.get("files", {}).get("roster_csv", "")
+    path = config.get("files", {}).get("roster_file", "")
     if path.lower().endswith(".xlsx"):
         return _read_roster_xlsx(path, roster_cfg)
     rows: List[Dict[str, str]] = []

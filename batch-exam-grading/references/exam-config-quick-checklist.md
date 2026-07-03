@@ -38,7 +38,7 @@
 
 通常先不动：
 
-- `files`
+- `files`（含名单文件字段 `roster_file`）
 - `roster`
 - `llm.review_policy`
 - 常见 `extract.source`（如 `choice_inline`、`section_question`、`code_table`）
