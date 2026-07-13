@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 import requests
+from openpyxl import Workbook
 from PIL import Image
 
 
@@ -40,7 +41,7 @@ def parse_text_line(line: str) -> StudentRow | None:
     if not text or text.startswith("#"):
         return None
 
-    parts = [part.strip() for part in re.split(r"[\s,，\t]+", text, maxsplit=1) if part.strip()]
+    parts = [part.strip() for part in re.split(r"[\s,\t]+", text, maxsplit=1) if part.strip()]
     if len(parts) != 2:
         return None
 
@@ -110,10 +111,57 @@ def safe_filename(student: StudentRow, ext: str = ".jpg") -> str:
     return f"{student.student_id}{student.name}{ext}"
 
 
+def csv_report_path(out_dir: pathlib.Path) -> pathlib.Path:
+    return out_dir / "_photo_download_report.csv"
+
+
+def folder_named_report_path(out_dir: pathlib.Path) -> pathlib.Path:
+    folder_name = out_dir.resolve().name or "report"
+    return out_dir / f"{folder_name}.xlsx"
+
+
+def write_csv_report(
+    report_path: pathlib.Path,
+    fieldnames: list[str],
+    rows: list[dict[str, object]],
+) -> pathlib.Path:
+    with report_path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    return report_path
+
+
+def write_xlsx_report(
+    report_path: pathlib.Path,
+    columns: list[tuple[str, str]],
+    rows: list[dict[str, object]],
+) -> pathlib.Path:
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "report"
+    worksheet.append([header for _, header in columns])
+
+    for row in rows:
+        worksheet.append([row.get(field) for field, _ in columns])
+
+    workbook.save(report_path)
+    return report_path
+
+
 def download_photos(students: Iterable[StudentRow], out_dir: pathlib.Path) -> pathlib.Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    report_path = out_dir / "_photo_download_report.csv"
-    fieldnames = ["seq", "student_id", "name", "url", "status", "bytes"]
+    csv_path = csv_report_path(out_dir)
+    xlsx_path = folder_named_report_path(out_dir)
+    csv_columns = [
+        ("seq", "序号"),
+        ("student_id", "学号"),
+        ("name", "姓名"),
+        ("url", "照片地址"),
+        ("status", "状态"),
+        ("bytes", "字节数"),
+    ]
+    xlsx_columns = csv_columns[:3]
     rows = []
 
     session = requests.Session()
@@ -149,12 +197,8 @@ def download_photos(students: Iterable[StudentRow], out_dir: pathlib.Path) -> pa
             }
         )
 
-    with report_path.open("w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    return report_path
+    write_csv_report(csv_path, [field for field, _ in csv_columns], rows)
+    return write_xlsx_report(xlsx_path, xlsx_columns, rows)
 
 
 def copy_wechat_cache(cache_dir: pathlib.Path, out_dir: pathlib.Path) -> pathlib.Path:
@@ -180,8 +224,11 @@ def copy_wechat_cache(cache_dir: pathlib.Path, out_dir: pathlib.Path) -> pathlib
 
 def delete_cache_copies(out_dir: pathlib.Path) -> pathlib.Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    report_path = out_dir / "_cache_cleanup_report.csv"
-    fieldnames = ["file", "status"]
+    report_path = out_dir / "_cache_cleanup_report.xlsx"
+    columns = [
+        ("file", "文件名"),
+        ("status", "状态"),
+    ]
     rows = []
 
     for path in sorted(out_dir.glob("f_*.jpg")):
@@ -191,12 +238,7 @@ def delete_cache_copies(out_dir: pathlib.Path) -> pathlib.Path:
         except Exception:
             rows.append({"file": path.name, "status": "failed"})
 
-    with report_path.open("w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    return report_path
+    return write_xlsx_report(report_path, columns, rows)
 
 
 def build_parser() -> argparse.ArgumentParser:
